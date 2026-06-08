@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P-Short | Premium Serverless URL Shortener</title>
+    <meta name="description" content="P-Short is a private, serverless, and open-source client-side URL shortener. No databases, no tracking, just fast, secure redirects.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- QR Code Generator Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Background Glowing Orbs -->
+    <div class="orb-container">
+        <div class="glowing-orb orb-1"></div>
+        <div class="glowing-orb orb-2"></div>
+        <div class="glowing-orb orb-3"></div>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <main class="main-container">
+        
+        <!-- ========================================== -->
+        <!-- 1. GENERATOR VIEW                          -->
+        <!-- ========================================== -->
+        <section id="generator-view" class="view-section">
+            <!-- Header -->
+            <header class="app-header">
+                <div class="logo-container">
+                    <div class="logo-icon">
+                        <i data-lucide="scissors" class="icon-pulse"></i>
+                    </div>
+                    <h1>P-Short</h1>
+                </div>
+                <p class="tagline">The premium, privacy-first, serverless URL shortener.</p>
+                <div class="badge-row">
+                    <span class="badge"><i data-lucide="shield-check"></i> 100% Private</span>
+                    <span class="badge"><i data-lucide="server-off"></i> No Database</span>
+                    <span class="badge"><i data-lucide="zap"></i> Instant</span>
+                </div>
+            </header>
+
+            <!-- Shortener Card -->
+            <div class="glass-card main-card">
+                <form id="shorten-form" class="shorten-form">
+                    <div class="input-group">
+                        <div class="input-icon">
+                            <i data-lucide="link"></i>
+                        </div>
+                        <input 
+                            type="url" 
+                            id="long-url" 
+                            placeholder="Paste your long link here (e.g., https://example.com/deep/path)" 
+                            required 
+                            autocomplete="off"
+                        >
+                    </div>
+                    <button type="submit" id="generate-btn" class="btn btn-primary">
+                        <span>Shorten Link</span>
+                        <i data-lucide="arrow-right"></i>
+                    </button>
+                </form>
+
+                <div id="error-message" class="error-message hidden">
+                    <i data-lucide="alert-circle"></i>
+                    <span id="error-text">Please enter a valid URL.</span>
+                </div>
+
+                <!-- Result Area (hidden by default) -->
+                <div id="result-area" class="result-area hidden">
+                    <div class="divider"></div>
+                    <h3 class="result-title">Your Short Link is Ready</h3>
+                    
+                    <div class="result-box-container">
+                        <div class="input-group result-group">
+                            <div class="input-icon">
+                                <i data-lucide="sparkles" class="text-accent"></i>
+                            </div>
+                            <input type="text" id="short-url" readonly value="https://short.parotcorp.com/#c-abc...">
+                        </div>
+                        
+                        <div class="button-group">
+                            <button id="copy-btn" class="btn btn-secondary tooltip" data-tooltip="Copy link">
+                                <i data-lucide="copy"></i>
+                                <span>Copy</span>
+                            </button>
+                            <button id="qr-btn" class="btn btn-secondary tooltip" data-tooltip="Generate QR Code">
+                                <i data-lucide="qr-code"></i>
+                                <span>QR Code</span>
+                            </button>
+                            <a id="open-btn" href="#" target="_blank" class="btn btn-secondary tooltip" data-tooltip="Open in new tab">
+                                <i data-lucide="external-link"></i>
+                                <span>Open</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- QR Code Modal/Accordion -->
+                    <div id="qr-container" class="qr-container hidden">
+                        <div class="qr-card">
+                            <canvas id="qr-canvas"></canvas>
+                            <button id="download-qr-btn" class="btn btn-text">
+                                <i data-lucide="download"></i> Download QR Code
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Section -->
+            <div id="history-section" class="glass-card history-card hidden">
+                <div class="card-header">
+                    <h3><i data-lucide="history"></i> Shortened Links History</h3>
+                    <button id="clear-history-btn" class="btn btn-text btn-danger">
+                        <i data-lucide="trash-2"></i> Clear All
+                    </button>
+                </div>
+                <div class="history-list-wrapper">
+                    <ul id="history-list" class="history-list">
+                        <!-- Dynamically populated -->
+                    </ul>
+                </div>
+            </div>
+
+
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 2. REDIRECTOR VIEW                         -->
+        <!-- ========================================== -->
+        <section id="redirector-view" class="view-section hidden">
+            <div class="glass-card redirect-card">
+                <div class="redirect-header">
+                    <div class="security-shield">
+                        <i data-lucide="shield-alert" class="icon-warning"></i>
+                    </div>
+                    <h2>Leaving P-Short</h2>
+                    <p>You are being redirected to a external website.</p>
+                </div>
+
+                <div class="redirect-target-box">
+                    <span class="target-label">Destination URL:</span>
+                    <a id="redirect-target-url" href="#" target="_blank" class="target-url">
+                        <!-- Target URL populated dynamically -->
+                    </a>
+                    <span id="redirect-target-domain" class="target-domain">
+                        <!-- Target Domain populated dynamically -->
+                    </span>
+                </div>
+
+                <div class="countdown-container">
+                    <div class="circular-progress">
+                        <svg class="progress-ring" width="120" height="120">
+                            <circle class="progress-ring-circle-bg" stroke="#1e1e38" stroke-width="6" fill="transparent" r="50" cx="60" cy="60"/>
+                            <circle id="countdown-circle" class="progress-ring-circle" stroke="url(#gradient-accent)" stroke-width="6" fill="transparent" r="50" cx="60" cy="60"/>
+                            <!-- Radial Gradients inside SVG -->
+                            <defs>
+                                <linearGradient id="gradient-accent" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#9333ea" />
+                                    <stop offset="100%" stop-color="#3b82f6" />
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                        <div id="countdown-number" class="countdown-number">3</div>
+                    </div>
+                    <p class="countdown-text">Redirecting you in a few seconds...</p>
+                </div>
+
+                <div class="redirect-actions">
+                    <button id="cancel-redirect-btn" class="btn btn-secondary">
+                        <i data-lucide="x-circle"></i> Cancel
+                    </button>
+                    <a id="instant-redirect-btn" href="#" class="btn btn-primary">
+                        <span>Redirect Now</span>
+                        <i data-lucide="external-link"></i>
+                    </a>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer-bottom">
+        <p>&copy; 2026 P-Short. Powered by PAROT.</p>
+    </footer>
+
+    <!-- Custom App JS -->
+    <script src="app.js"></script>
+</body>
+</html>
