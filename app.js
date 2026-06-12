@@ -87,6 +87,39 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${part1}-${part2}`;
     }
 
+    function jsonp(url, timeoutMs = 3500) {
+        return new Promise((resolve, reject) => {
+            const callbackName = 'isgd_callback_' + Math.round(100000 * Math.random());
+            
+            const timer = setTimeout(() => {
+                cleanup();
+                reject(new Error("JSONP request timed out"));
+            }, timeoutMs);
+
+            function cleanup() {
+                clearTimeout(timer);
+                delete window[callbackName];
+                if (script.parentNode) {
+                    script.parentNode.removeChild(script);
+                }
+            }
+
+            window[callbackName] = function(data) {
+                cleanup();
+                resolve(data);
+            };
+            
+            const separator = url.indexOf('?') === -1 ? '?' : '&';
+            const script = document.createElement('script');
+            script.src = `${url}${separator}callback=${callbackName}`;
+            script.onerror = function() {
+                cleanup();
+                reject(new Error("JSONP request failed"));
+            };
+            document.body.appendChild(script);
+        });
+    }
+
     /* ==========================================================================
        2. URL Compression & Encoding
        ========================================================================== */
@@ -140,19 +173,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const customIsGd = customHash.replace('-', '_');
             
             try {
-                const response = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(url)}&shorturl=${customIsGd}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data && data.shorturl) {
-                        return customHash;
-                    } else if (data && data.errorcode === 2) {
-                        // Custom alias already in use, try another one
-                        console.warn(`Custom alias ${customIsGd} already taken, retrying...`);
-                        continue;
-                    } else if (data && data.errormessage) {
-                        console.warn(`is.gd API error: ${data.errormessage}`);
-                        break;
-                    }
+                const data = await jsonp(`https://is.gd/create.php?format=json&url=${encodeURIComponent(url)}&shorturl=${customIsGd}`);
+                if (data && data.shorturl) {
+                    return customHash;
+                } else if (data && data.errorcode === 2) {
+                    // Custom alias already in use, try another one
+                    console.warn(`Custom alias ${customIsGd} already taken, retrying...`);
+                    continue;
+                } else if (data && data.errormessage) {
+                    console.warn(`is.gd API error: ${data.errormessage}`);
+                    break;
                 }
             } catch (e) {
                 console.warn("External shortener API failed, falling back to local compression", e);
