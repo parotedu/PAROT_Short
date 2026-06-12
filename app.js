@@ -87,39 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${part1}-${part2}`;
     }
 
-    function jsonp(url, timeoutMs = 3500) {
-        return new Promise((resolve, reject) => {
-            const callbackName = 'isgd_callback_' + Math.round(100000 * Math.random());
-            
-            const timer = setTimeout(() => {
-                cleanup();
-                reject(new Error("JSONP request timed out"));
-            }, timeoutMs);
-
-            function cleanup() {
-                clearTimeout(timer);
-                delete window[callbackName];
-                if (script.parentNode) {
-                    script.parentNode.removeChild(script);
-                }
-            }
-
-            window[callbackName] = function(data) {
-                cleanup();
-                resolve(data);
-            };
-            
-            const separator = url.indexOf('?') === -1 ? '?' : '&';
-            const script = document.createElement('script');
-            script.src = `${url}${separator}callback=${callbackName}`;
-            script.onerror = function() {
-                cleanup();
-                reject(new Error("JSONP request failed"));
-            };
-            document.body.appendChild(script);
-        });
-    }
-
     /* ==========================================================================
        2. URL Compression & Encoding
        ========================================================================== */
@@ -170,20 +137,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const maxRetries = 3;
         for (let attempt = 0; attempt < maxRetries; attempt++) {
             const customHash = generateCustomHash();
-            const customIsGd = customHash.replace('-', '_');
             
             try {
-                const data = await jsonp(`https://is.gd/create.php?format=json&url=${encodeURIComponent(url)}&shorturl=${customIsGd}`);
-                if (data && data.shorturl) {
-                    return customHash;
-                } else if (data && data.errorcode === 2) {
-                    // Custom alias already in use, try another one
-                    console.warn(`Custom alias ${customIsGd} already taken, retrying...`);
-                    continue;
-                } else if (data && data.errormessage) {
-                    console.warn(`is.gd API error: ${data.errormessage}`);
-                    break;
+                const response = await fetch("https://spoo.me/", {
+                    method: "POST",
+                    headers: {
+                        "Accept": "application/json",
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: `url=${encodeURIComponent(url)}&alias=${customHash}`
+                });
+                
+                if (response.status === 200 || response.status === 400) {
+                    const data = await response.json();
+                    if (data && data.short_url) {
+                        return customHash;
+                    } else if (data && data.AliasError) {
+                        // Custom alias already in use, try another one
+                        console.warn(`Custom alias ${customHash} already taken on spoo.me, retrying...`);
+                        continue;
+                    }
                 }
+                break;
             } catch (e) {
                 console.warn("External shortener API failed, falling back to local compression", e);
                 break;
@@ -217,9 +192,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (hash.startsWith('r-')) {
             return decodeRaw(hash.substring(2));
         } else if (/^[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}$/.test(hash)) {
-            // It is our custom 8-character short link; replace hyphen with underscore and resolve through is.gd
-            const resolvedHash = hash.replace('-', '_');
-            return `https://is.gd/${resolvedHash}`;
+            // It is our custom 8-character short link; resolve through spoo.me
+            return `https://spoo.me/${hash}`;
         } else if (/^[a-zA-Z0-9_-]+$/.test(hash) && hash.length <= 12) {
             // It is an external short hash token; resolve through is.gd
             return `https://is.gd/${hash}`;
