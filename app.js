@@ -192,7 +192,19 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (hash.startsWith('r-')) {
             return decodeRaw(hash.substring(2));
         } else if (/^[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}$/.test(hash)) {
-            // It is our custom 8-character short link; resolve through spoo.me
+            // Try to resolve the original URL from spoo.me stats to display and redirect directly
+            try {
+                const response = await fetch(`https://spoo.me/stats/${hash}`);
+                if (response.ok) {
+                    const html = await response.text();
+                    const match = html.match(/id="url_long_code">([^<]+)</);
+                    if (match && match[1]) {
+                        return match[1].trim();
+                    }
+                }
+            } catch (e) {
+                console.warn("Failed to fetch original URL from spoo.me stats, falling back to direct redirect", e);
+            }
             return `https://spoo.me/${hash}`;
         } else if (/^[a-zA-Z0-9_-]+$/.test(hash) && hash.length <= 12) {
             // It is an external short hash token; resolve through is.gd
@@ -500,6 +512,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let domain = getDomainName(originalUrl);
             if (domain === 'is.gd') {
                 domain = 'is.gd (Secure Redirect Gateway)';
+            } else if (domain === 'spoo.me') {
+                domain = 'spoo.me (Secure Redirect Gateway)';
             }
             redirectTargetDomain.textContent = domain;
             
@@ -540,8 +554,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startRedirectCountdown(targetUrl) {
-        let secondsLeft = 3;
-        const totalDuration = 3; // in seconds
+        let secondsLeft = 10;
+        const totalDuration = 10; // in seconds
         
         countdownNumber.textContent = secondsLeft;
         
