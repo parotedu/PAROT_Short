@@ -76,6 +76,17 @@ document.addEventListener('DOMContentLoaded', () => {
         return bytes;
     }
 
+    function generateCustomHash() {
+        const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let part1 = '';
+        let part2 = '';
+        for (let i = 0; i < 4; i++) {
+            part1 += chars.charAt(Math.floor(Math.random() * chars.length));
+            part2 += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return `${part1}-${part2}`;
+    }
+
     /* ==========================================================================
        2. URL Compression & Encoding
        ========================================================================== */
@@ -123,21 +134,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Main Shorten function
     async function shortenURL(url) {
-        // Try calling the is.gd API for an ultra-short 6-char hash
-        try {
-            const response = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(url)}`);
-            if (response.ok) {
-                const data = await response.json();
-                if (data && data.shorturl) {
-                    // Extract the hash token (e.g. "https://is.gd/jAxBiv" -> "jAxBiv")
-                    const shortHash = data.shorturl.split('/').pop();
-                    if (shortHash && shortHash.length <= 12) {
-                        return shortHash;
+        const maxRetries = 3;
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            const customHash = generateCustomHash();
+            const customIsGd = customHash.replace('-', '_');
+            
+            try {
+                const response = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(url)}&shorturl=${customIsGd}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.shorturl) {
+                        return customHash;
+                    } else if (data && data.errorcode === 2) {
+                        // Custom alias already in use, try another one
+                        console.warn(`Custom alias ${customIsGd} already taken, retrying...`);
+                        continue;
+                    } else if (data && data.errormessage) {
+                        console.warn(`is.gd API error: ${data.errormessage}`);
+                        break;
                     }
                 }
+            } catch (e) {
+                console.warn("External shortener API failed, falling back to local compression", e);
+                break;
             }
-        } catch (e) {
-            console.warn("External shortener API failed, falling back to local compression", e);
         }
 
         // Fallback to local compression if the API is offline/rate-limited
@@ -166,6 +186,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return await decompressStr(hash.substring(2));
         } else if (hash.startsWith('r-')) {
             return decodeRaw(hash.substring(2));
+        } else if (/^[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}$/.test(hash)) {
+            // It is our custom 8-character short link; replace hyphen with underscore and resolve through is.gd
+            const resolvedHash = hash.replace('-', '_');
+            return `https://is.gd/${resolvedHash}`;
         } else if (/^[a-zA-Z0-9_-]+$/.test(hash) && hash.length <= 12) {
             // It is an external short hash token; resolve through is.gd
             return `https://is.gd/${hash}`;
